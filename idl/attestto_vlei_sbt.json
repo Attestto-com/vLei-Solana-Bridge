@@ -1,0 +1,163 @@
+{
+  "address": "AT2PmPv9tJkKyR9u1nQ2YvXXEeMrLCQUhtDeiKSwxgkp",
+  "metadata": {
+    "name": "attestto_vlei_sbt",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Attestto vLEI Soulbound Token — on-chain attestation PDA program"
+  },
+  "instructions": [
+    {
+      "name": "create_attestation",
+      "discriminator": [],
+      "accounts": [
+        {
+          "name": "attestation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": "vlei-attestation" },
+              { "kind": "arg", "path": "lei_hash" },
+              { "kind": "arg", "path": "subject_aid" }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
+        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
+        { "name": "proof_a", "type": { "array": ["u8", 64] } },
+        { "name": "proof_b", "type": { "array": ["u8", 128] } },
+        { "name": "proof_c", "type": { "array": ["u8", 64] } },
+        { "name": "public_signals", "type": { "array": [{ "array": ["u8", 32] }, 4] } },
+        { "name": "attested_at", "type": "i64" },
+        { "name": "expires_at", "type": "i64" },
+        { "name": "metadata_uri", "type": "string" }
+      ]
+    },
+    {
+      "name": "set_pq_identity_root",
+      "discriminator": [],
+      "accounts": [
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        { "name": "pq_identity_root", "type": { "array": ["u8", 64] } }
+      ]
+    },
+    {
+      "name": "revoke_attestation",
+      "discriminator": [],
+      "accounts": [
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "VleiAttestation",
+      "discriminator": [],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "flag", "type": "u8" },
+          { "name": "lei_hash", "type": { "array": ["u8", 32] } },
+          { "name": "subject_aid", "type": { "array": ["u8", 32] } },
+          { "name": "zkp_proof_hash", "type": { "array": ["u8", 32] } },
+          { "name": "public_signals", "type": { "array": [{ "array": ["u8", 32] }, 4] } },
+          { "name": "attested_at", "type": "i64" },
+          { "name": "expires_at", "type": "i64" },
+          { "name": "metadata_uri_len", "type": "u16" },
+          { "name": "metadata_uri", "type": "string" },
+          { "name": "authority", "type": "pubkey" },
+          { "name": "bump", "type": "u8" },
+          { "name": "pq_identity_root_set", "type": "bool" },
+          { "name": "pq_identity_root", "type": { "array": ["u8", 64] } }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "AttestationCreated",
+      "discriminator": [],
+      "fields": [
+        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
+        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
+        { "name": "authority", "type": "pubkey" },
+        { "name": "attested_at", "type": "i64" },
+        { "name": "expires_at", "type": "i64" }
+      ]
+    },
+    {
+      "name": "AttestationRevoked",
+      "discriminator": [],
+      "fields": [
+        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
+        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
+        { "name": "authority", "type": "pubkey" },
+        { "name": "revoked_at", "type": "i64" }
+      ]
+    },
+    {
+      "name": "PqIdentityRootSet",
+      "discriminator": [],
+      "fields": [
+        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
+        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
+        { "name": "authority", "type": "pubkey" }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MetadataUriTooLong",
+      "msg": "Metadata URI exceeds maximum length of 2048 bytes"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidExpiry",
+      "msg": "Expiry timestamp must be after attestation timestamp"
+    },
+    {
+      "code": 6002,
+      "name": "AlreadyRevoked",
+      "msg": "Attestation is already revoked"
+    },
+    {
+      "code": 6003,
+      "name": "UnauthorizedRevocation",
+      "msg": "Only the original authority can revoke this attestation"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidZkProof",
+      "msg": "ZK proof verification failed — invalid proof or public signals"
+    }
+  ]
+}
