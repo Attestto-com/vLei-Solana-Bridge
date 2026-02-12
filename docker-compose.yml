@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  # ── Solana local validator ───────────────────────────────────────────
+  validator:
+    image: attestto-contracts
+    build: .
+    command: solana-test-validator --reset
+    ports:
+      - "8899:8899"   # RPC
+      - "8900:8900"   # WS
+    healthcheck:
+      test: ["CMD", "solana", "cluster-version"]
+      interval: 5s
+      retries: 10
+
+  # ── Build + Test runner ──────────────────────────────────────────────
+  anchor:
+    image: attestto-contracts
+    build: .
+    depends_on:
+      validator:
+        condition: service_healthy
+    environment:
+      - ANCHOR_PROVIDER_URL=http://validator:8899
+      - ANCHOR_WALLET=/root/.config/solana/id.json
+    command: anchor test --skip-local-validator --skip-build
+    volumes:
+      - ./programs:/workdir/programs
+      - ./tests:/workdir/tests
+      - ./Anchor.toml:/workdir/Anchor.toml

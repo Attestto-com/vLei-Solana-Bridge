@@ -1,0 +1,6 @@
+{
+  "name": "Attestto vLEI Bridge",
+  "project_url": "https://github.com/Attestto-com/vLei-Solana-Bridge",
+  "contacts": ["security@attestto.com"],
+  "policy": "https://github.com/Attestto-com/vLei-Solana-Bridge/blob/main/SECURITY.md"
+}
