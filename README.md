@@ -565,6 +565,107 @@ Entities never need to hold SOL. Attestto sponsors all on-chain transaction fees
 { "...attestation", "status": "revoked", "revokedAt": "..." }
 ```
 
+## SAS (Solana Attestation Service) Integration
+
+### Dual-Issuance Architecture
+
+After the custom Attestto PDA (Step 4) and SBT (Step 5) are written, the bridge optionally mirrors the attestation to the ecosystem-wide [Solana Attestation Service](https://github.com/solana-foundation/solana-attestation-service) (SAS) as a tokenized attestation. This is controlled by a tenant-level setting.
+
+```
+ VleiBridgeService.bridge()
+   Step 1-3: [unchanged — validate, GLEIF, ZKP]
+   Step 4:   Custom PDA write (attestto_vlei_sbt program)
+   Step 5:   SBT mint via SovereignPass (Token-2022)
+   Step 6:   IF SAS_ATTESTATION_ENABLED → mirror to SAS    ← NEW
+             ELSE skip
+
+ Both attestations coexist:
+   - Custom PDA = source of truth for ZKP verification
+   - SAS attestation = ecosystem discoverability (Civic, SumSub, Range, etc.)
+
+ SAS failure is NON-FATAL: custom PDA + SBT remain valid.
+```
+
+### SAS Program Details
+
+| | |
+|---|---|
+| **SAS Program ID** | `22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG` |
+| **SDK** | `sas-lib` (npm) — uses `@solana/kit` (Web3.js v2) |
+| **Attestation Type** | Tokenized — mints a soulbound Token-2022 NFT to the recipient |
+
+### SAS Schema
+
+The Attestto vLEI schema registered on SAS:
+
+```
+ Credential: "Attestto vLEI Bridge"
+ Schema:     "vLEI Attestation" (v1)
+
+ Field             Type      Description
+ =====             ====      ===========
+ lei_hash          String    SHA-256 of 20-char LEI number
+ subject_aid       String    SHA-256 of KERI AID
+ zkp_proof_hash    String    SHA-256 of Groth16 proof
+ role_level        U8        ISO 5009 authority level (1-4)
+ jurisdiction      String    ISO 3166-1 alpha-2 country code
+ attested_at       I64       Unix timestamp of attestation
+ expires_at        I64       Unix timestamp of expiry
+ custom_pda        String    Address of our custom attestation PDA
+ metadata_uri      String    Off-chain metadata JSON URI
+```
+
+### SAS Bootstrap
+
+One-time setup per environment:
+
+```bash
+# Create credential + schema + tokenize on SAS
+node ace sas:bootstrap --network=devnet
+
+# Output:
+# SAS_CREDENTIAL_PDA=<credential>
+# SAS_SCHEMA_PDA=<schema>
+# SAS_SCHEMA_MINT=<schemaMint>
+# SAS_ATTESTATION_ENABLED=true
+```
+
+### SAS Revocation Sync
+
+When an Attestto attestation is revoked (manual or oracle sync), the SAS attestation is also closed:
+
+```
+ VleiBridgeService.revoke()
+   1. Revoke custom PDA (flag = 0x01)
+   2. IF sas_status = 'created':
+      Close SAS attestation (CloseAttestation instruction)
+      sas_status -> 'closed'
+   3. Mark DB record as revoked
+```
+
+### SAS Environment Variables
+
+```
+SAS_PROGRAM_ID=22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG
+SAS_CREDENTIAL_PDA=<from bootstrap>
+SAS_SCHEMA_PDA=<from bootstrap>
+SAS_SCHEMA_MINT=<from bootstrap>
+SAS_ATTESTATION_ENABLED=false   # default off, enable per tenant
+```
+
+### SAS Database Columns
+
+Added to `vlei_bridge_attestations`:
+
+```
+ Column                  Type          Description
+ ======                  ====          ===========
+ sas_attestation_pda     varchar(255)  SAS attestation PDA address
+ sas_mint_address        varchar(255)  SAS Token-2022 mint address
+ sas_tx_signature        varchar(255)  SAS creation tx signature
+ sas_status              varchar(20)   pending | created | failed | closed
+```
+
 ## Regulatory Alignment
 
 | Standard | How the Bridge Addresses It |
