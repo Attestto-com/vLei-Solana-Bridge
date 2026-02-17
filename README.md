@@ -2,7 +2,7 @@
 
 Open-source Solana program for on-chain vLEI credential attestation. Verifies [GLEIF](https://www.gleif.org/)-issued verifiable LEI credentials via Groth16 zero-knowledge proofs and stores soulbound attestation PDAs — permissionless, non-transferable, and revocable.
 
-The world's first GLEIF-to-blockchain identity bridge: converts a verified vLEI credential (off-chain, KERI/ACDC) into a Solana Soulbound Token (SBT) backed by an on-chain attestation PDA, enabling any DeFi smart contract to verify institutional identity with a single instruction.
+The world's first GLEIF-to-Solana-blockchain identity bridge: converts a verified vLEI credential (off-chain, KERI/ACDC) into a Solana Soulbound Token (SBT) backed by an on-chain attestation PDA, enabling any DeFi smart contract to verify institutional identity with a single instruction.
 
 **No PII is stored on-chain.** A Zero-Knowledge Proof (ZKP) proves vLEI validity and role without revealing the underlying credential data.
 
