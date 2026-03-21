@@ -1,7 +1,7 @@
 # vLEI Solana Bridge
 
 > [!IMPORTANT]
-> **The world's first GLEIF-to-Solana identity bridge.** Converts a GLEIF-issued verifiable LEI credential (vLEI) into a Solana Soulbound Token (SBT) backed by an on-chain attestation PDA — with zero PII stored on-chain.
+> Institutional DeFi and compliance-gated applications need to verify the legal identity of corporate participants — who they are, what role they hold, and whether that identity is current. Today, this either requires trusting a centralized oracle or exposing sensitive corporate data on-chain.
 
 ## Program
 
