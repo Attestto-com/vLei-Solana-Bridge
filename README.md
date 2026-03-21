@@ -139,9 +139,9 @@ sequenceDiagram
 stateDiagram-v2
     [*] --> pending_zkp : bridge() called
 
-    pending_zkp --> zkp_generated : ZkpService.generateVleiProof()
-    zkp_generated --> attested : SolanaAttestationService.createAttestation()
-    attested --> minted : SovereignPassService.mintVleiBridgeSbt()
+    pending_zkp --> zkp_generated : Groth16 proof generated
+    zkp_generated --> attested : Attestation PDA written on-chain
+    attested --> minted : Soulbound Token minted
 
     minted --> revoked : Manual revoke OR oracle sync\n(burn SBT + flag PDA 0x01)
 
@@ -304,7 +304,7 @@ sequenceDiagram
         Backend->>Solana: revokeAttestation(pda)\nwrite flag = 0x01
         Solana-->>Backend: tx signature
         Backend->>Solana: burnSovereignPass(sbtMint)
-        Backend->>Backend: status → revoked\nauditLog.create()
+        Backend->>Backend: status → revoked
     end
 
     Note over Backend,GLEIF: On manual refresh
@@ -347,7 +347,7 @@ sequenceDiagram
 
     Entity->>Backend: bridge request
     Backend->>Backend: Build TX instruction\n(PDA write / SBT mint)
-    Backend->>Relayer: relayTransaction(tx, 'credential_issue', userId)
+    Backend->>Relayer: Forward unsigned TX
     Relayer->>Solana: Fee payer signs TX + submits to RPC
     Solana-->>Relayer: tx signature
     Relayer-->>Backend: { success, signature }
@@ -454,7 +454,7 @@ npm install          # installs circomlib, snarkjs
 ./build.sh           # compile + trusted setup + export vkey
 ```
 
-This produces three artifacts in `api/storage/zkp/circuits/`:
+This produces three artifacts in `circuits/build/`:
 - `vlei_verification.wasm` — circuit witness generator
 - `vlei_verification.zkey` — proving key (Groth16)
 - `vlei_verification_vkey.json` — verification key
