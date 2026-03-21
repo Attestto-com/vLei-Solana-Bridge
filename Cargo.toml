@@ -4,7 +4,7 @@ members = [
 ]
 resolver = "2"
 
-# Pin transitive deps to versions compatible with Solana BPF toolchain (rustc 1.79)
+# Pin transitive deps to versions compatible with Solana BPF toolchain (rustc 1.75)
 [workspace.dependencies]
 borsh = "=1.5.5"
 indexmap = "=2.7.1"

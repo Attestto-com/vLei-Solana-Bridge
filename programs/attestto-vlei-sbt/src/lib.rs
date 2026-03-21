@@ -1,8 +1,19 @@
 use anchor_lang::prelude::*;
 use groth16_solana::groth16::{Groth16Verifier, Groth16Verifyingkey};
 use sha2::{Sha256, Digest};
+use solana_security_txt::security_txt;
 
 declare_id!("GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm");
+
+security_txt! {
+    name: "Attestto vLEI Bridge",
+    project_url: "https://attestto.com",
+    contacts: "email:security@attestto.com",
+    policy: "https://attestto.com/security",
+    source_code: "https://github.com/Attestto-com/cortex",
+    preferred_languages: "en",
+    auditors: "None"
+}
 
 /// Maximum length of a metadata URI (2 KB)
 const MAX_METADATA_URI_LEN: usize = 2048;
@@ -136,18 +147,27 @@ pub mod attestto_vlei_sbt {
         require!(expires_at > attested_at, VleiError::InvalidExpiry);
 
         // ── On-chain Groth16 ZK proof verification ──────────────────────────
-        let mut verifier = Groth16Verifier::new(
-            &proof_a,
-            &proof_b,
-            &proof_c,
-            &public_signals,
-            &VERIFYING_KEY,
-        )
-        .map_err(|_| VleiError::InvalidZkProof)?;
-
-        verifier
-            .verify()
+        #[cfg(not(feature = "no-zk-verify"))]
+        {
+            let mut verifier = Groth16Verifier::new(
+                &proof_a,
+                &proof_b,
+                &proof_c,
+                &public_signals,
+                &VERIFYING_KEY,
+            )
             .map_err(|_| VleiError::InvalidZkProof)?;
+
+            verifier
+                .verify()
+                .map_err(|_| VleiError::InvalidZkProof)?;
+        }
+        #[cfg(feature = "no-zk-verify")]
+        {
+            msg!("ZK proof verification SKIPPED (test build)");
+            // Suppress unused variable warnings in test builds
+            let _ = (&proof_a, &proof_b, &proof_c, &public_signals);
+        }
         // ────────────────────────────────────────────────────────────────────
 
         // Compute proof hash for compact on-chain storage
