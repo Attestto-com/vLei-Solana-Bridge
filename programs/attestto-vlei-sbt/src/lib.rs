@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use groth16_solana::groth16::{Groth16Verifier, Groth16Verifyingkey};
 use sha2::{Sha256, Digest};
 
-declare_id!("AT2PmPv9tJkKyR9u1nQ2YvXXEeMrLCQUhtDeiKSwxgkp");
+declare_id!("GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm");
 
 /// Maximum length of a metadata URI (2 KB)
 const MAX_METADATA_URI_LEN: usize = 2048;

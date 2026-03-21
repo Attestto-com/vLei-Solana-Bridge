@@ -8,11 +8,14 @@ attestto_vlei_sbt = "AT2PmPv9tJkKyR9u1nQ2YvXXEeMrLCQUhtDeiKSwxgkp"
 [programs.devnet]
 attestto_vlei_sbt = "AT2PmPv9tJkKyR9u1nQ2YvXXEeMrLCQUhtDeiKSwxgkp"
 
+[programs.mainnet]
+attestto_vlei_sbt = "GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm"
+
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "mainnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
