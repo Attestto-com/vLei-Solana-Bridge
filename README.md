@@ -1,5 +1,6 @@
 # vLEI Solana Bridge
 
+> [!IMPORTANT]
 > **The world's first GLEIF-to-Solana identity bridge.** Converts a GLEIF-issued verifiable LEI credential (vLEI) into a Solana Soulbound Token (SBT) backed by an on-chain attestation PDA — with zero PII stored on-chain.
 
 ## Program
@@ -28,6 +29,9 @@ The vLEI Solana Bridge takes a [GLEIF](https://www.gleif.org/)-issued verifiable
 2. **Soulbound Token (SBT)** — a non-transferable Token-2022 NFT bound to the entity's wallet, readable in any wallet UI.
 
 A Groth16 Zero-Knowledge Proof proves the credential is valid, non-expired, and held by the submitting wallet — without revealing the entity name, LEI number, or any identifying data.
+
+> [!NOTE]
+> No PII is ever stored on-chain. Only ZKP proof hashes, role levels, and timestamps reach the Solana ledger.
 
 ### Who Uses It
 
@@ -77,7 +81,9 @@ graph LR
 
 ### Key Properties
 
-- **Permissionless verification** — any Solana program reads the PDA with a single account lookup (~0.000005 SOL, <400ms)
+> [!TIP]
+> **Permissionless verification** — any Solana program reads the PDA with a single account lookup (~0.000005 SOL, <400ms). No SDK required, no oracle dependency.
+
 - **Soulbound** — non-transferable PDAs and Token-2022 NFTs bound to a specific LEI + credential subject
 - **Revocable** — on-chain flag flipped instantly; oracle syncs GLEIF revocations every 6 hours
 - **Privacy-preserving** — vLEI credential never touches the chain; only ZKP proof hash, role level, and timestamps stored
@@ -360,13 +366,8 @@ After the custom Attestto PDA and SBT are written, the bridge optionally mirrors
 | **SDK** | `sas-lib` (npm) — uses `@solana/kit` (Web3.js v2) |
 | **Attestation Type** | Tokenized — mints a soulbound Token-2022 NFT to the recipient |
 
-```
-Both attestations coexist:
-  - Custom PDA  = source of truth for ZKP verification
-  - SAS mirror  = ecosystem discoverability (Civic, SumSub, Range, etc.)
-
-SAS failure is NON-FATAL: custom PDA + SBT remain valid.
-```
+> [!NOTE]
+> Both attestations coexist: the custom PDA is the source of truth for ZKP verification; the SAS mirror adds ecosystem discoverability (Civic, SumSub, Range, etc.). SAS failure is **non-fatal** — the custom PDA and SBT remain valid regardless.
 
 ### SAS Schema
 
@@ -467,7 +468,8 @@ The Anchor program embeds the verification key as a Rust `const`. After building
 | G1 | `x (32B BE) \|\| y (32B BE)` | 64 bytes |
 | G2 | `x_imaginary (32B BE) \|\| x_real (32B BE) \|\| y_imaginary (32B BE) \|\| y_real (32B BE)` | 128 bytes |
 
-> For G2, the **imaginary** component comes **before** the real component in each pair. This matches the Ethereum/Solana `alt_bn128` precompile encoding.
+> [!WARNING]
+> For G2, the **imaginary** component comes **before** the real component in each pair. This matches the Ethereum/Solana `alt_bn128` precompile encoding. Getting this order wrong produces a silent verification failure.
 
 ```bash
 node -e "
@@ -517,7 +519,10 @@ anchor test
 
 ### Verified Build (Mainnet)
 
-The program is verified on-chain via [OtterSec](https://verify.osec.io). Upgrade authority is controlled by Squads multisig. To re-verify after an upgrade:
+> [!CAUTION]
+> The upgrade authority is controlled by the Squads multisig (`J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv`). Every program upgrade requires a multisig proposal — single-key deploys are not possible.
+
+The program is verified on-chain via [OtterSec](https://verify.osec.io). To re-verify after an upgrade:
 
 ```bash
 # 1. Build verifiably
