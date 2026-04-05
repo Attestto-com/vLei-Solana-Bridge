@@ -408,7 +408,7 @@ After the custom Attestto PDA and SBT are written, the bridge optionally mirrors
 // Response (201)
 {
   "id": 1,
-  "leiNumber": "5493001KJTIIGC8Y1R12",
+  "leiNumber": "549300EXAMPLE00LEI42",
   "jurisdiction": "CR",
   "walletAddress": "...",
   "status": "minted",
