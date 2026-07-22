@@ -9,21 +9,103 @@
   "instructions": [
     {
       "name": "create_attestation",
-      "discriminator": [],
+      "docs": [
+        "Create a new vLEI attestation PDA with on-chain ZK proof verification.",
+        "",
+        "PDA seeds: `['vlei-attestation', lei_hash, subject_aid]` where",
+        "`lei_hash` = SHA-256(LEI number) and `subject_aid` = SHA-256(KERI AID).",
+        "Adding `subject_aid` prevents PDA collision when multiple officers",
+        "hold credentials under the same LEI.",
+        "",
+        "The Groth16 proof is verified on-chain before the attestation is written.",
+        "After verification, only the proof hash is stored to minimize rent.",
+        "",
+        "Only the authorized `authority` (Attestto fee payer) can call this."
+      ],
+      "discriminator": [
+        49,
+        24,
+        67,
+        80,
+        12,
+        249,
+        96,
+        239
+      ],
       "accounts": [
         {
           "name": "attestation",
+          "docs": [
+            "The attestation PDA account to be created.",
+            "Seeds: ['vlei-attestation', lei_hash, subject_aid]"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
-              { "kind": "const", "value": "vlei-attestation" },
-              { "kind": "arg", "path": "lei_hash" },
-              { "kind": "arg", "path": "subject_aid" }
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  108,
+                  101,
+                  105,
+                  45,
+                  97,
+                  116,
+                  116,
+                  101,
+                  115,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "lei_hash"
+              },
+              {
+                "kind": "arg",
+                "path": "subject_aid"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Program config pinning the authorized issuer. Must be initialized first."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  108,
+                  101,
+                  105,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
             ]
           }
         },
         {
           "name": "authority",
+          "docs": [
+            "The authorized issuer (Attestto backend). Enforced to equal",
+            "`config.issuer` — an arbitrary signer can no longer mint attestations."
+          ],
           "writable": true,
           "signer": true
         },
@@ -33,103 +115,391 @@
         }
       ],
       "args": [
-        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
-        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
-        { "name": "proof_a", "type": { "array": ["u8", 64] } },
-        { "name": "proof_b", "type": { "array": ["u8", 128] } },
-        { "name": "proof_c", "type": { "array": ["u8", 64] } },
-        { "name": "public_signals", "type": { "array": [{ "array": ["u8", 32] }, 4] } },
-        { "name": "attested_at", "type": "i64" },
-        { "name": "expires_at", "type": "i64" },
-        { "name": "metadata_uri", "type": "string" }
+        {
+          "name": "lei_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "subject_aid",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "proof_a",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "proof_b",
+          "type": {
+            "array": [
+              "u8",
+              128
+            ]
+          }
+        },
+        {
+          "name": "proof_c",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "public_signals",
+          "type": {
+            "array": [
+              {
+                "array": [
+                  "u8",
+                  32
+                ]
+              },
+              4
+            ]
+          }
+        },
+        {
+          "name": "attested_at",
+          "type": "i64"
+        },
+        {
+          "name": "expires_at",
+          "type": "i64"
+        },
+        {
+          "name": "metadata_uri",
+          "type": "string"
+        }
       ]
     },
     {
-      "name": "set_pq_identity_root",
-      "discriminator": [],
+      "name": "initialize",
+      "docs": [
+        "Initialize the singleton program config that pins the authorized issuer.",
+        "",
+        "Must be called once by the deploying admin before any attestation can be",
+        "created. Until this runs, `create_attestation` cannot succeed because the",
+        "config PDA does not exist. The `admin` may later rotate the issuer via",
+        "`set_issuer`."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
       "accounts": [
         {
-          "name": "attestation",
-          "writable": true
+          "name": "config",
+          "docs": [
+            "Singleton config PDA. `init` makes this callable exactly once."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  108,
+                  101,
+                  105,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
         },
         {
-          "name": "authority",
+          "name": "admin",
+          "docs": [
+            "The deploying admin. Becomes `config.admin` and pays rent."
+          ],
+          "writable": true,
           "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
-        { "name": "pq_identity_root", "type": { "array": ["u8", 64] } }
+        {
+          "name": "issuer",
+          "type": "pubkey"
+        }
       ]
     },
     {
       "name": "revoke_attestation",
-      "discriminator": [],
+      "docs": [
+        "Revoke an existing vLEI attestation by setting the flag to 0x01.",
+        "",
+        "Only the original `authority` that created the attestation can revoke it.",
+        "Once revoked, any DeFi protocol reading the PDA will see `flag = 0x01`",
+        "and reject the attestation."
+      ],
+      "discriminator": [
+        12,
+        156,
+        103,
+        161,
+        194,
+        246,
+        211,
+        179
+      ],
       "accounts": [
         {
           "name": "attestation",
+          "docs": [
+            "The attestation PDA to revoke."
+          ],
           "writable": true
         },
         {
           "name": "authority",
-          "signer": true
+          "docs": [
+            "Must be the same authority that created the attestation."
+          ],
+          "signer": true,
+          "relations": [
+            "attestation"
+          ]
         }
       ],
       "args": []
+    },
+    {
+      "name": "set_issuer",
+      "docs": [
+        "Rotate the authorized issuer. Only the config `admin` may call this."
+      ],
+      "discriminator": [
+        122,
+        240,
+        209,
+        127,
+        179,
+        164,
+        175,
+        206
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "Config PDA. Only its `admin` may rotate the issuer."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  108,
+                  101,
+                  105,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_issuer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_pq_identity_root",
+      "docs": [
+        "Set the post-quantum identity root on an existing attestation.",
+        "",
+        "The `pq_identity_root` is a 64-byte hash (SHA-512 or SHAKE-256) of the",
+        "ML-DSA-65 (Dilithium) public key associated with this credential subject.",
+        "Storing the hash instead of the full key (1312 bytes) keeps rent costs low",
+        "while enabling future PQ verification by comparing against the hash.",
+        "",
+        "Only the original authority can set this field."
+      ],
+      "discriminator": [
+        149,
+        41,
+        91,
+        31,
+        141,
+        78,
+        48,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "attestation",
+          "docs": [
+            "The attestation PDA to update."
+          ],
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Must be the same authority that created the attestation."
+          ],
+          "signer": true,
+          "relations": [
+            "attestation"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "pq_identity_root",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        }
+      ]
     }
   ],
   "accounts": [
     {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
       "name": "VleiAttestation",
-      "discriminator": [],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          { "name": "flag", "type": "u8" },
-          { "name": "lei_hash", "type": { "array": ["u8", 32] } },
-          { "name": "subject_aid", "type": { "array": ["u8", 32] } },
-          { "name": "zkp_proof_hash", "type": { "array": ["u8", 32] } },
-          { "name": "public_signals", "type": { "array": [{ "array": ["u8", 32] }, 4] } },
-          { "name": "attested_at", "type": "i64" },
-          { "name": "expires_at", "type": "i64" },
-          { "name": "metadata_uri_len", "type": "u16" },
-          { "name": "metadata_uri", "type": "string" },
-          { "name": "authority", "type": "pubkey" },
-          { "name": "bump", "type": "u8" },
-          { "name": "pq_identity_root_set", "type": "bool" },
-          { "name": "pq_identity_root", "type": { "array": ["u8", 64] } }
-        ]
-      }
+      "discriminator": [
+        18,
+        137,
+        218,
+        17,
+        239,
+        47,
+        192,
+        0
+      ]
     }
   ],
   "events": [
     {
       "name": "AttestationCreated",
-      "discriminator": [],
-      "fields": [
-        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
-        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
-        { "name": "authority", "type": "pubkey" },
-        { "name": "attested_at", "type": "i64" },
-        { "name": "expires_at", "type": "i64" }
+      "discriminator": [
+        217,
+        170,
+        19,
+        203,
+        128,
+        51,
+        29,
+        163
       ]
     },
     {
       "name": "AttestationRevoked",
-      "discriminator": [],
-      "fields": [
-        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
-        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
-        { "name": "authority", "type": "pubkey" },
-        { "name": "revoked_at", "type": "i64" }
+      "discriminator": [
+        47,
+        106,
+        65,
+        238,
+        200,
+        127,
+        163,
+        50
+      ]
+    },
+    {
+      "name": "ConfigInitialized",
+      "discriminator": [
+        181,
+        49,
+        200,
+        156,
+        19,
+        167,
+        178,
+        91
+      ]
+    },
+    {
+      "name": "IssuerRotated",
+      "discriminator": [
+        90,
+        81,
+        254,
+        211,
+        136,
+        224,
+        145,
+        57
       ]
     },
     {
       "name": "PqIdentityRootSet",
-      "discriminator": [],
-      "fields": [
-        { "name": "lei_hash", "type": { "array": ["u8", 32] } },
-        { "name": "subject_aid", "type": { "array": ["u8", 32] } },
-        { "name": "authority", "type": "pubkey" }
+      "discriminator": [
+        68,
+        23,
+        13,
+        63,
+        140,
+        29,
+        136,
+        224
       ]
     }
   ],
@@ -158,6 +528,337 @@
       "code": 6004,
       "name": "InvalidZkProof",
       "msg": "ZK proof verification failed — invalid proof or public signals"
+    },
+    {
+      "code": 6005,
+      "name": "UnauthorizedIssuer",
+      "msg": "Signer is not the authorized issuer pinned in program config"
+    },
+    {
+      "code": 6006,
+      "name": "UnauthorizedAdmin",
+      "msg": "Only the config admin can perform this action"
+    }
+  ],
+  "types": [
+    {
+      "name": "AttestationCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lei_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "subject_aid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "attested_at",
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AttestationRevoked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lei_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "subject_aid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "revoked_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Config",
+      "docs": [
+        "Singleton program config. Pins the issuer allowed to create attestations."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "docs": [
+              "Admin authorized to rotate the issuer."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "issuer",
+            "docs": [
+              "The only signer allowed to call `create_attestation`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "issuer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "IssuerRotated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous_issuer",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_issuer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PqIdentityRootSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lei_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "subject_aid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VleiAttestation",
+      "docs": [
+        "On-chain attestation account data.",
+        "",
+        "Layout (Anchor-serialized with Borsh):",
+        "[flag 1B] [lei_hash 32B] [subject_aid 32B] [zkp_proof_hash 32B]",
+        "[public_signals 128B] [attested_at 8B] [expires_at 8B]",
+        "[metadata_uri_len 2B] [metadata_uri String]",
+        "[authority 32B] [bump 1B]",
+        "[pq_identity_root_set 1B] [pq_identity_root 64B]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "flag",
+            "docs": [
+              "0x00 = active, 0x01 = revoked"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "lei_hash",
+            "docs": [
+              "SHA-256 hash of the LEI number (20-char string)"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "subject_aid",
+            "docs": [
+              "SHA-256 hash of the KERI AID of the credential subject.",
+              "Included in PDA seeds to prevent collision for same-LEI officers."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "zkp_proof_hash",
+            "docs": [
+              "SHA-256 hash of the concatenated Groth16 proof (proof_a || proof_b || proof_c).",
+              "The full proof is verified on-chain during `create_attestation` but only the",
+              "hash is stored to minimize rent costs."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "public_signals",
+            "docs": [
+              "The 4 public signals from the ZK proof, stored for audit.",
+              "[0] currentTimestamp, [1] credentialHashCommitment,",
+              "[2] walletPubkeyHash, [3] minRoleLevel"
+            ],
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                4
+              ]
+            }
+          },
+          {
+            "name": "attested_at",
+            "docs": [
+              "Unix timestamp when the attestation was created"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "docs": [
+              "Unix timestamp when the attestation expires"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "metadata_uri_len",
+            "docs": [
+              "Length of the metadata URI string"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "metadata_uri",
+            "docs": [
+              "Off-chain metadata URI (e.g., Arweave/IPFS link to JSON)"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "authority",
+            "docs": [
+              "The authority (Attestto fee payer) that created this attestation.",
+              "Only this pubkey can revoke it."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed for re-derivation"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "pq_identity_root_set",
+            "docs": [
+              "Whether `pq_identity_root` has been set."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "pq_identity_root",
+            "docs": [
+              "Post-quantum identity root — SHA-512 or SHAKE-256 hash of the",
+              "ML-DSA-65 (Dilithium) public key. Set to zero initially; populated",
+              "via `set_pq_identity_root` when PQ keys are provisioned.",
+              "Storing a 64-byte hash instead of the full 1312-byte key keeps",
+              "rent costs manageable while enabling PQ identity binding."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
     }
   ]
 }

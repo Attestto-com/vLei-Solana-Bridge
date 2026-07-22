@@ -21,6 +21,9 @@ const MAX_METADATA_URI_LEN: usize = 2048;
 /// PDA seed prefix — must match TypeScript `solana_attestation_service.ts`
 const PDA_SEED_PREFIX: &[u8] = b"vlei-attestation";
 
+/// PDA seed for the singleton program config (issuer allow-list).
+const CONFIG_SEED: &[u8] = b"vlei-config";
+
 /// Attestation flag values
 const FLAG_ACTIVE: u8 = 0x00;
 const FLAG_REVOKED: u8 = 0x01;
@@ -115,6 +118,43 @@ const VERIFYING_KEY: Groth16Verifyingkey = Groth16Verifyingkey {
 pub mod attestto_vlei_sbt {
     use super::*;
 
+    /// Initialize the singleton program config that pins the authorized issuer.
+    ///
+    /// Must be called once by the deploying admin before any attestation can be
+    /// created. Until this runs, `create_attestation` cannot succeed because the
+    /// config PDA does not exist. The `admin` may later rotate the issuer via
+    /// `set_issuer`.
+    pub fn initialize(ctx: Context<Initialize>, issuer: Pubkey) -> Result<()> {
+        let config = &mut ctx.accounts.config;
+        config.admin = ctx.accounts.admin.key();
+        config.issuer = issuer;
+        config.bump = ctx.bumps.config;
+
+        emit!(ConfigInitialized {
+            admin: config.admin,
+            issuer: config.issuer,
+        });
+
+        msg!("vLEI config initialized");
+        Ok(())
+    }
+
+    /// Rotate the authorized issuer. Only the config `admin` may call this.
+    pub fn set_issuer(ctx: Context<SetIssuer>, new_issuer: Pubkey) -> Result<()> {
+        let config = &mut ctx.accounts.config;
+        let previous = config.issuer;
+        config.issuer = new_issuer;
+
+        emit!(IssuerRotated {
+            admin: config.admin,
+            previous_issuer: previous,
+            new_issuer,
+        });
+
+        msg!("vLEI issuer rotated");
+        Ok(())
+    }
+
     /// Create a new vLEI attestation PDA with on-chain ZK proof verification.
     ///
     /// PDA seeds: `['vlei-attestation', lei_hash, subject_aid]` where
@@ -146,8 +186,9 @@ pub mod attestto_vlei_sbt {
         );
         require!(expires_at > attested_at, VleiError::InvalidExpiry);
 
-        // ── On-chain Groth16 ZK proof verification ──────────────────────────
-        #[cfg(not(feature = "no-zk-verify"))]
+        // ── On-chain Groth16 ZK proof verification (always enforced) ─────────
+        // No build-time bypass exists: the program cannot be compiled to skip
+        // proof verification. Tests must supply real proofs.
         {
             let mut verifier = Groth16Verifier::new(
                 &proof_a,
@@ -161,12 +202,6 @@ pub mod attestto_vlei_sbt {
             verifier
                 .verify()
                 .map_err(|_| VleiError::InvalidZkProof)?;
-        }
-        #[cfg(feature = "no-zk-verify")]
-        {
-            msg!("ZK proof verification SKIPPED (test build)");
-            // Suppress unused variable warnings in test builds
-            let _ = (&proof_a, &proof_b, &proof_c, &public_signals);
         }
         // ────────────────────────────────────────────────────────────────────
 
@@ -289,9 +324,13 @@ pub struct CreateAttestation<'info> {
     )]
     pub attestation: Account<'info, VleiAttestation>,
 
-    /// The authorized fee payer (Attestto backend).
-    /// Must be a signer — only Attestto can create attestations.
-    #[account(mut)]
+    /// Program config pinning the authorized issuer. Must be initialized first.
+    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
+    pub config: Account<'info, Config>,
+
+    /// The authorized issuer (Attestto backend). Enforced to equal
+    /// `config.issuer` — an arbitrary signer can no longer mint attestations.
+    #[account(mut, address = config.issuer @ VleiError::UnauthorizedIssuer)]
     pub authority: Signer<'info>,
 
     pub system_program: Program<'info, System>,
@@ -323,9 +362,60 @@ pub struct RevokeAttestation<'info> {
     pub authority: Signer<'info>,
 }
 
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    /// Singleton config PDA. `init` makes this callable exactly once.
+    #[account(
+        init,
+        payer = admin,
+        space = Config::SPACE,
+        seeds = [CONFIG_SEED],
+        bump,
+    )]
+    pub config: Account<'info, Config>,
+
+    /// The deploying admin. Becomes `config.admin` and pays rent.
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SetIssuer<'info> {
+    /// Config PDA. Only its `admin` may rotate the issuer.
+    #[account(
+        mut,
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+        has_one = admin @ VleiError::UnauthorizedAdmin,
+    )]
+    pub config: Account<'info, Config>,
+
+    pub admin: Signer<'info>,
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// Singleton program config. Pins the issuer allowed to create attestations.
+#[account]
+pub struct Config {
+    /// Admin authorized to rotate the issuer.
+    pub admin: Pubkey,
+
+    /// The only signer allowed to call `create_attestation`.
+    pub issuer: Pubkey,
+
+    /// PDA bump seed.
+    pub bump: u8,
+}
+
+impl Config {
+    /// Anchor discriminator (8) + admin (32) + issuer (32) + bump (1).
+    pub const SPACE: usize = 8 + 32 + 32 + 1;
+}
 
 /// On-chain attestation account data.
 ///
@@ -445,6 +535,19 @@ pub struct PqIdentityRootSet {
     pub authority: Pubkey,
 }
 
+#[event]
+pub struct ConfigInitialized {
+    pub admin: Pubkey,
+    pub issuer: Pubkey,
+}
+
+#[event]
+pub struct IssuerRotated {
+    pub admin: Pubkey,
+    pub previous_issuer: Pubkey,
+    pub new_issuer: Pubkey,
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ERRORS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -465,4 +568,10 @@ pub enum VleiError {
 
     #[msg("ZK proof verification failed — invalid proof or public signals")]
     InvalidZkProof,
+
+    #[msg("Signer is not the authorized issuer pinned in program config")]
+    UnauthorizedIssuer,
+
+    #[msg("Only the config admin can perform this action")]
+    UnauthorizedAdmin,
 }
