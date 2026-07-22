@@ -1,5 +1,11 @@
 # vLEI Solana Bridge
 
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Solana](https://img.shields.io/badge/Solana-mainnet--beta-14F195)](https://solana.fm/address/GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm)
+[![Anchor](https://img.shields.io/badge/Anchor-0.32.1-512BD4)](https://www.anchor-lang.com/)
+[![Status](https://img.shields.io/badge/status-experimental%20%C2%B7%20unaudited-orange)](SECURITY.md)
+[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-db61a2)](https://github.com/sponsors/Attestto-com)
+
 > Institutional DeFi and compliance-gated applications need to verify the legal identity of corporate participants. Today, this requires trusting a centralized oracle or exposing sensitive corporate data on-chain.
 
 The vLEI Solana Bridge takes a [GLEIF](https://www.gleif.org/)-issued vLEI credential (the global standard for legal entity identity, used by 2.4M+ entities worldwide) and produces two on-chain artifacts: an Attestation PDA storing a ZKP proof hash, role level, expiry, and revocation flag — with zero PII. Any Solana program reads it in a single account lookup.
@@ -670,3 +676,11 @@ Apache-2.0
 | **Upgrade Authority** | [`J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv`](https://solana.fm/address/J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv) (Squads multisig) |
 | **Network** | Solana Mainnet-Beta |
 | **Framework** | Anchor 0.32.1 |
+
+---
+
+## Support
+
+This is experimental infrastructure. It is deployed to Solana mainnet but has **not** been independently audited (see [SECURITY.md](SECURITY.md); the on-chain `security_txt` declares `auditors: "None"`). Security hardening is in progress.
+
+If you would like this to reach production grade, [sponsorship](https://github.com/sponsors/Attestto-com) funds the hardening work and an independent security audit. Sponsorship is directed to Attestto Inc., not to an individual.
