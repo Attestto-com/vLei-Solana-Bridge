@@ -1,56 +1,20 @@
 # vLEI Solana Bridge
 
-> [!IMPORTANT]
-> Institutional DeFi and compliance-gated applications need to verify the legal identity of corporate participants — who they are, what role they hold, and whether that identity is current. Today, this either requires trusting a centralized oracle or exposing sensitive corporate data on-chain.
+> Institutional DeFi and compliance-gated applications need to verify the legal identity of corporate participants. Today, this requires trusting a centralized oracle or exposing sensitive corporate data on-chain.
 
-## Program
-
-| | |
-|---|---|
-| **Program ID (Mainnet)** | [`GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm`](https://solana.fm/address/GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm) |
-| **Upgrade Authority** | [`J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv`](https://solana.fm/address/J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv) (Squads multisig) |
-| **Network** | Solana Mainnet-Beta |
-| **Framework** | Anchor 0.32.1 |
-| **License** | Apache-2.0 |
-
----
-
-## Executive Overview
-
-### The Problem
-
-Institutional DeFi and compliance-gated applications need to verify the legal identity of corporate participants — who they are, what role they hold, and whether that identity is current. Today, this either requires trusting a centralized oracle or exposing sensitive corporate data on-chain.
-
-### What This Does
-
-The vLEI Solana Bridge takes a [GLEIF](https://www.gleif.org/)-issued verifiable LEI credential (the global standard for legal entity identity, used by 2.4M+ entities worldwide) and produces two on-chain artifacts:
-
-1. **Attestation PDA** — a program-derived account storing a ZKP proof hash, role level, expiry, and revocation flag. No PII. Any Solana program can read it in a single account lookup.
-2. **Soulbound Token (SBT)** — a non-transferable Token-2022 NFT bound to the entity's wallet, readable in any wallet UI.
-
-A Groth16 Zero-Knowledge Proof proves the credential is valid, non-expired, and held by the submitting wallet — without revealing the entity name, LEI number, or any identifying data.
-
-> [!NOTE]
-> No PII is ever stored on-chain. Only ZKP proof hashes, role levels, and timestamps reach the Solana ledger.
-
-### Who Uses It
-
-- **DeFi protocols** — gate liquidity pools, lending markets, or governance votes to verified institutional participants via a single `has_valid_vlei()` PDA read
-- **Compliance platforms** — replace manual KYB checks with cryptographically verifiable, GLEIF-anchored identity
-- **Institutional wallets** — display a verifiable badge of corporate identity alongside token balances
-
-### Regulatory Alignment
-
-| Standard | Coverage |
-|---|---|
-| **GLEIF vLEI (ACDC/KERI)** | Full credential chain-of-trust validation back to GLEIF Root of Trust |
-| **EU MiCA** | Verifiable corporate identity for institutional DeFi access |
-| **FATF Travel Rule** | Originator/beneficiary identification for cross-border virtual asset transfers |
-| **ISO 5009** | Role-level mapping from vLEI roles to on-chain numeric authority levels (1–4) |
-
----
+The vLEI Solana Bridge takes a [GLEIF](https://www.gleif.org/)-issued vLEI credential (the global standard for legal entity identity, used by 2.4M+ entities worldwide) and produces two on-chain artifacts: an Attestation PDA storing a ZKP proof hash, role level, expiry, and revocation flag — with zero PII. Any Solana program reads it in a single account lookup.
 
 ## Architecture
+
+### Why this architecture
+
+Solana programs are deterministic and sandboxed: during execution they cannot make outbound network requests, call a Web2 API, or resolve an off-chain DID. A program acts only on data handed to it inside the instruction it is running. Three consequences shape this design — and the README below assumes them:
+
+1. **Proofs are pushed, not pulled — so there is no oracle.** Because the program cannot reach out to GLEIF or a DID resolver, the vLEI credential cannot be fetched on-chain. Instead its validity is proved off-chain and the proof is submitted *inside* the instruction. No trusted oracle sits in the trust path; the Groth16 verifier in the program is the only thing that decides whether the proof holds.
+
+2. **The proof is generated off-chain, then verified on-chain.** The Attestto backend (see the Three-Layer Model below) fetches the vLEI credential, re-verifies its chain of trust with GLEIF, and generates the Groth16 proof locally with `ZkpService`. That proof — not the credential — travels into the Solana instruction. The credential and all PII stay off-chain.
+
+3. **The PDA turns a one-time verification into a reusable on-chain fact.** Once the program verifies the proof, it writes the result (role level, expiry, revocation flag, proof hash) to a Program-Derived Account. Any other Solana program — a DEX, a lending market, a governance contract — then checks whether a wallet is a verified legal entity with a single account read, without touching an external API or re-verifying the proof. Verification happens once; the PDA is read forever.
 
 ### Three-Layer Model
 
@@ -79,6 +43,71 @@ graph LR
     ZKP -->|"proof hash"| PDA
 ```
 
+## Quick start
+
+### Prerequisites
+
+- Node.js 18+
+- Rust 1.70+
+- Anchor CLI 0.32.1
+- Circom compiler (for circuit development)
+
+### Install / Deploy
+
+```bash
+# Install circuit dependencies
+cd circuits
+npm install
+
+# Build the circuit
+./build.sh
+
+# Install program dependencies and build
+pnpm install
+anchor build
+```
+
+### Try it
+
+```bash
+# Run tests
+anchor test
+
+# Deploy to devnet
+solana config set --url https://api.devnet.solana.com
+solana airdrop 5
+anchor deploy --provider.cluster devnet
+```
+
+## Key concepts
+
+### What This Does
+
+The bridge takes a vLEI credential and produces two on-chain artifacts:
+
+1. **Attestation PDA** — a program-derived account storing a ZKP proof hash, role level, expiry, and revocation flag. No PII. Any Solana program can read it in a single account lookup.
+2. **Soulbound Token (SBT)** — a non-transferable Token-2022 NFT bound to the entity's wallet, readable in any wallet UI.
+
+A Groth16 Zero-Knowledge Proof proves the credential is valid, non-expired, and held by the submitting wallet — without revealing the entity name, LEI number, or any identifying data.
+
+> [!NOTE]
+> No PII is ever stored on-chain. Only ZKP proof hashes, role levels, and timestamps reach the Solana ledger.
+
+### Who Uses It
+
+- **DeFi protocols** — gate liquidity pools, lending markets, or governance votes to verified institutional participants via a single `has_valid_vlei()` PDA read
+- **Compliance platforms** — replace manual KYB checks with cryptographically verifiable, GLEIF-anchored identity
+- **Institutional wallets** — display a verifiable badge of corporate identity alongside token balances
+
+### Regulatory Alignment
+
+| Standard | Coverage |
+|---|---|
+| **GLEIF vLEI (ACDC/KERI)** | Full credential chain-of-trust validation back to GLEIF Root of Trust |
+| **EU MiCA** | Verifiable corporate identity for institutional DeFi access |
+| **FATF Travel Rule** | Originator/beneficiary identification for cross-border virtual asset transfers |
+| **ISO 5009** | Role-level mapping from vLEI roles to on-chain numeric authority levels (1–4) |
+
 ### Key Properties
 
 > [!TIP]
@@ -88,8 +117,6 @@ graph LR
 - **Revocable** — on-chain flag flipped instantly; oracle syncs GLEIF revocations every 6 hours
 - **Privacy-preserving** — vLEI credential never touches the chain; only ZKP proof hash, role level, and timestamps stored
 - **Gasless** — entities never need SOL; Attestto sponsors all transaction fees via a dedicated fee-payer wallet
-
----
 
 ## Bridge Flow
 
@@ -150,8 +177,6 @@ stateDiagram-v2
     attested --> failed : Any step fails
 ```
 
----
-
 ## On-Chain Verification
 
 ### DeFi Protocol Integration
@@ -173,8 +198,6 @@ flowchart TD
 ```rust
 require!(attestto_sbt.has_valid_vlei(user_wallet))
 ```
-
----
 
 ## ZKP Circuit
 
@@ -214,8 +237,6 @@ graph TB
     CIRCUIT --> PROOF["Statement proven:\nWallet X holds a valid vLEI\nfor LEI #hidden with role\nauthority level N, issued by\na GLEIF-authorized QVI,\nexpiring at T"]
 ```
 
----
-
 ## Role Level Mapping (ISO 5009)
 
 | vLEI Role | Level | On-Chain Permissions |
@@ -224,8 +245,6 @@ graph TB
 | CO · AO | 2 | Sign compliance docs, approve transfers |
 | CFO · COO · CTO · CISO · LR · BD | 3 | Approve KYB, sign regulatory reports |
 | CEO | 4 | Full authority: governance votes, multisig admin |
-
----
 
 ## Instructions
 
@@ -255,8 +274,6 @@ Revokes an existing attestation by setting `flag = 0x01`. Only the original auth
 
 Stores a 64-byte post-quantum identity root hash (SHA-512/SHAKE-256 of ML-DSA-65 public key) on an active attestation. Enables future PQ verification without storing the full 1312-byte key on-chain.
 
----
-
 ## Account Layout
 
 ```
@@ -284,8 +301,6 @@ VleiAttestation (353 + metadata_uri bytes)
  Privacy: NO entity name, NO jurisdiction, NO PII stored on-chain.
           Only hashes, timestamps, and ZKP public signals.
 ```
-
----
 
 ## Revocation
 
@@ -332,8 +347,6 @@ POST /vlei-bridge/attestations/:id/refresh
 5. Return new attestation
 ```
 
----
-
 ## Gasless Transaction Relay
 
 Entities never need to hold SOL. Attestto sponsors all on-chain transaction fees via a dedicated fee-payer wallet.
@@ -353,8 +366,6 @@ sequenceDiagram
     Relayer-->>Backend: { success, signature }
     Backend-->>Entity: SBT in wallet
 ```
-
----
 
 ## SAS (Solana Attestation Service) Integration
 
@@ -382,8 +393,6 @@ After the custom Attestto PDA and SBT are written, the bridge optionally mirrors
 | `expires_at` | I64 | Unix timestamp of expiry |
 | `custom_pda` | String | Address of the custom attestation PDA |
 | `metadata_uri` | String | Off-chain metadata JSON URI |
-
----
 
 ## REST API Reference
 
@@ -421,8 +430,6 @@ After the custom Attestto PDA and SBT are written, the bridge optionally mirrors
 
 **Error codes**: `CREDENTIAL_NOT_FOUND`, `TENANT_MISMATCH`, `CREDENTIAL_INACTIVE`, `GLEIF_INVALID`, `ZKP_FAILED`, `ATTESTATION_FAILED`, `SBT_MINT_FAILED`
 
----
-
 ## Security
 
 | Threat | Mitigation |
@@ -436,8 +443,6 @@ After the custom Attestto PDA and SBT are written, the bridge optionally mirrors
 | Program upgrades | Upgrade authority controlled by Squads multisig (`J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv`) |
 
 See [SECURITY.md](./SECURITY.md) for vulnerability disclosure policy.
-
----
 
 ## Build
 
@@ -562,8 +567,57 @@ anchor deploy --provider.cluster devnet
 solana program show <PROGRAM_ID>
 ```
 
----
+## Ecosystem
+
+| Repo | Role | Relationship |
+|---|---|---|
+| **[cr-vc-schemas](https://github.com/Attestto-com/cr-vc-schemas)** | VC Schemas | Uses same Squads multisig governance model |
+| **[wallet-identity-resolver](https://github.com/Attestto-com/wallet-identity-resolver)** | Identity Resolution | Includes provider to read these attestations (`@attestto/wir-sas`) |
+| **[did-sns-spec](https://github.com/Attestto-com/did-sns-spec)** | DID Method | Dual-DID architecture includes vLEI as a DID service |
+
+## Build with an LLM
+
+This repo ships a [`llms.txt`](./llms.txt) context file — a machine-readable summary of the API, data structures, and integration patterns designed to be read by AI coding assistants.
+
+### Recommended setup
+
+Use the [`attestto-dev-mcp`](../attestto-dev-mcp) server to give your LLM active access to the ecosystem:
+
+```bash
+cd ../attestto-dev-mcp
+npm install && npm run build
+```
+
+Then add it to your Claude / Cursor / Windsurf config and ask:
+
+> *"Explore the Attestto ecosystem and scaffold me a project using [this repo]"*
+
+### Which model?
+
+We recommend **[Claude](https://claude.ai) Pro** (5× usage vs free) or higher. Long context and strong TypeScript/Rust reasoning handle this codebase well. The MCP server works with any LLM that supports tool use.
+
+> **Quick start:** Ask your LLM to read `llms.txt` in this repo, then describe what you want to build. It will find the right archetype, generate boilerplate, and walk you through the first run.
+
+## Contributing
+
+Contributions are welcome. Please file issues for bugs or feature requests. When submitting pull requests, ensure:
+
+- Tests pass: `anchor test`
+- Circuit builds: `cd circuits && ./build.sh`
+- Code follows Anchor conventions
+- Upgrade authority remains Squads multisig on mainnet
 
 ## License
 
 Apache-2.0
+
+---
+
+## Deployed program
+
+| | |
+|---|---|
+| **Program ID (Mainnet)** | [`GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm`](https://solana.fm/address/GLEif8Rf1NFiuGPXxD7n3sakuNH6SZPFfoZMg1pBVEFm) |
+| **Upgrade Authority** | [`J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv`](https://solana.fm/address/J9vNVyywjig2ZGMnyxJCgdT14YWPExEKvz7ZURVjuZjv) (Squads multisig) |
+| **Network** | Solana Mainnet-Beta |
+| **Framework** | Anchor 0.32.1 |
