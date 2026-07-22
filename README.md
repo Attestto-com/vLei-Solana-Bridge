@@ -20,7 +20,31 @@ Solana programs are deterministic and sandboxed: during execution they cannot ma
 
 The bridge translates trust across a boundary. Data flows one way (off-chain identity → on-chain fact), but there are two distinct beneficiaries: one on the *push* side, one on the *read* side.
 
-**The vLEI ecosystem (off-chain identity) — the push side.** A vLEI today lives in an off-chain KERI/ACDC world used mostly for regulatory identity and reporting. The bridge gives it a new surface:
+```mermaid
+graph LR
+    subgraph PUSH["🔵 vLEI ecosystem · PUSH side"]
+        direction TB
+        P1["Reach and utility<br/>credential gates real economic activity"]
+        P2["No oracle, no PII exposure<br/>push a ZK proof, not the LEI or name"]
+        P3["Portability<br/>soulbound, reusable across apps"]
+    end
+    subgraph READ["🟣 Solana programs · READ side"]
+        direction TB
+        R1["Composable compliance<br/>one has_valid_vlei read"]
+        R2["Low cost, no SDK<br/>~0.000005 SOL, &lt;400ms"]
+        R3["No PII liability<br/>gate on hashes and flags only"]
+    end
+    PUSH ==>|"distribution ↔ real-world trust"| READ
+
+    style PUSH fill:#0b2a6b,stroke:#3b82f6,color:#ffffff
+    style READ fill:#3b0b6b,stroke:#8b5cf6,color:#ffffff
+    classDef pushNode fill:#123a86,stroke:#3b82f6,color:#ffffff
+    classDef readNode fill:#4a1a86,stroke:#8b5cf6,color:#ffffff
+    class P1,P2,P3 pushNode
+    class R1,R2,R3 readNode
+```
+
+**🔵 The vLEI ecosystem (off-chain identity) — the push side.** A vLEI today lives in an off-chain KERI/ACDC world used mostly for regulatory identity and reporting. The bridge gives it a new surface:
 
 - **Reach and utility.** The credential moves from a compliance artifact to a key that gates real economic activity — liquidity, lending, governance — a use it could not serve before.
 - **No oracle, no exposure.** The entity proves once and pushes a ZK proof, not its LEI or name. It projects verified identity on-chain without publishing data or running oracle infrastructure.
@@ -28,7 +52,7 @@ The bridge translates trust across a boundary. Data flows one way (off-chain ide
 
 In one line: the identity side gains **distribution** — its credential becomes actionable where it could not reach.
 
-**Solana programs (on-chain execution) — the read side.** A single `has_valid_vlei()` PDA read tells a contract whether a wallet is a verified legal entity, with role level and revocation status:
+**🟣 Solana programs (on-chain execution) — the read side.** A single `has_valid_vlei()` PDA read tells a contract whether a wallet is a verified legal entity, with role level and revocation status:
 
 - **Compliance as a composable primitive.** No KYB desk, no oracle dependency, no API call. This lets regulated and institutional DeFi (MiCA, FATF Travel Rule) onboard legal entities without a trusted intermediary in the request path.
 - **Cost, latency, simplicity.** ~0.000005 SOL, <400ms, one account read, no SDK. Verification is paid once; every consumer reads it for near-free thereafter.
