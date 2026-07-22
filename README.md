@@ -16,6 +16,31 @@ Solana programs are deterministic and sandboxed: during execution they cannot ma
 
 3. **The PDA turns a one-time verification into a reusable on-chain fact.** Once the program verifies the proof, it writes the result (role level, expiry, revocation flag, proof hash) to a Program-Derived Account. Any other Solana program — a DEX, a lending market, a governance contract — then checks whether a wallet is a verified legal entity with a single account read, without touching an external API or re-verifying the proof. Verification happens once; the PDA is read forever.
 
+### What each side gains
+
+The bridge translates trust across a boundary. Data flows one way (off-chain identity → on-chain fact), but there are two distinct beneficiaries: one on the *push* side, one on the *read* side.
+
+**The vLEI ecosystem (off-chain identity) — the push side.** A vLEI today lives in an off-chain KERI/ACDC world used mostly for regulatory identity and reporting. The bridge gives it a new surface:
+
+- **Reach and utility.** The credential moves from a compliance artifact to a key that gates real economic activity — liquidity, lending, governance — a use it could not serve before.
+- **No oracle, no exposure.** The entity proves once and pushes a ZK proof, not its LEI or name. It projects verified identity on-chain without publishing data or running oracle infrastructure.
+- **Portability.** The verified state becomes a soulbound, wallet-bound token: one verification, reusable across any Solana app.
+
+In one line: the identity side gains **distribution** — its credential becomes actionable where it could not reach.
+
+**Solana programs (on-chain execution) — the read side.** A single `has_valid_vlei()` PDA read tells a contract whether a wallet is a verified legal entity, with role level and revocation status:
+
+- **Compliance as a composable primitive.** No KYB desk, no oracle dependency, no API call. This lets regulated and institutional DeFi (MiCA, FATF Travel Rule) onboard legal entities without a trusted intermediary in the request path.
+- **Cost, latency, simplicity.** ~0.000005 SOL, <400ms, one account read, no SDK. Verification is paid once; every consumer reads it for near-free thereafter.
+- **No PII liability.** Programs gate on a proof hash, role level, and flags — never on personal or corporate data — so they get the compliance signal without becoming a data controller.
+
+In one line: the execution side gains **real-world trust** — a GLEIF-anchored legal-identity primitive it can compose.
+
+**Why it is a bridge, not a one-way pipe.** The identity side supplies verified trust; the execution side supplies the markets where that trust has value. The bridge converts a legal, human-scale trust artifact (the vLEI, backed by KERI witnesses and QVIs) into a machine-readable on-chain fact (the PDA and SBT) without either side adopting the other's full stack. It does not re-attest the identity — GLEIF already did that — it attests that a valid vLEI was proven, in a form Solana can consume.
+
+> [!NOTE]
+> **Trust model.** Consumers rely on GLEIF's chain of trust and on the bridge honestly generating the proof and keeping revocation fresh (synced every 6 hours). The ZK proof establishes credential validity; re-verification and revocation freshness depend on the bridge operator. Decentralizing that operator role (for example, multiple independent witnesses co-signing the attestation) is a natural next step.
+
 ### Three-Layer Model
 
 ```mermaid
